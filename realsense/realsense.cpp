@@ -205,7 +205,7 @@ int main(int argc, char * argv[]) try {
         rs2::depth_frame aligned_depth = processed.get_depth_frame();
 
         // Find and colorize the depth data
-        rs2::frame depth_colorized = color_map(aligned_depth);  
+        //rs2::frame depth_colorized = color_map(aligned_depth);  
 
         int depth_size = aligned_depth.get_width()*aligned_depth.get_height()*aligned_depth.get_bytes_per_pixel();
         realsense_server.update_buffer((unsigned char*)aligned_depth.get_data(), 10*4, depth_size);
@@ -218,7 +218,7 @@ int main(int argc, char * argv[]) try {
         realsense_server.update_buffer((unsigned char*)&depth_scale, 9*4, 4);
 
         // Render depth on to the first half of the screen and color on to the second
-        depth_image.render(depth_colorized, { 0, 0, app.width() / 2, app.height() });
+        //depth_image.render(depth_colorized, { 0, 0, app.width() / 2, app.height() });
         color_image.render(color, { app.width() / 2, 0, app.width() / 2, app.height() });
     }
 

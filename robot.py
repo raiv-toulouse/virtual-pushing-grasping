@@ -7,6 +7,11 @@ import numpy as np
 import utils
 from simulation import vrep
 
+NUMBER_BYTES_FROM_UR = 1116  # For the UR3.10 version
+INTEGER = 1
+DOUBLE = 2
+ARRAY_OF_6_DOUBLES = 3
+
 class Robot(object):
     def __init__(self, is_sim, obj_mesh_dir, num_obj, workspace_limits,
                  tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
@@ -101,6 +106,10 @@ class Robot(object):
             # Connect as real-time client to parse state data
             self.rtc_host_ip = rtc_host_ip
             self.rtc_port = rtc_port
+
+            # The state dictionnary to collect all the info from UR robot
+            self.dicoVariables = {'actualCartesianCoordinatesOfTool': (444, ARRAY_OF_6_DOUBLES),
+                                  'actualJointPositions': (252, ARRAY_OF_6_DOUBLES)}
 
             # Default home joint configuration
             # self.home_joint_config = [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0]
@@ -474,22 +483,20 @@ class Robot(object):
             vrep.simxSetObjectPosition(self.sim_client,self.UR5_target_handle,-1,(tool_position[0],tool_position[1],tool_position[2]),vrep.simx_opmode_blocking)
 
         else:
-
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-            tcp_command = "movel(p[%f,%f,%f,%f,%f,%f],a=%f,v=%f,t=0,r=0)\n" % (tool_position[0],tool_position[1],tool_position[2],tool_orientation[0],tool_orientation[1],tool_orientation[2],self.tool_acc,self.tool_vel)
+            # Build the movel command
+            tcp_command = "movel(p[%f,%f,%f,%f,%f,%f],a=%f,v=%f,t=0,r=0)\n" % (
+                tool_position[0], tool_position[1], tool_position[2], tool_orientation[0], tool_orientation[1],
+                tool_orientation[2], self.tool_acc, self.tool_vel)
             self.tcp_socket.send(str.encode(tcp_command))
-
             # Block until robot reaches target tool position
-            tcp_state_data = self.tcp_socket.recv(2048)
-            actual_tool_pose = self.parse_tcp_state_data(tcp_state_data, 'cartesian_info')
-            while not all([np.abs(actual_tool_pose[j] - tool_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]): 
-                # [min(np.abs(actual_tool_pose[j] - tool_orientation[j-3]), np.abs(np.abs(actual_tool_pose[j] - tool_orientation[j-3]) - np.pi*2)) < self.tool_pose_tolerance[j] for j in range(3,6)]
-                # print([np.abs(actual_tool_pose[j] - tool_position[j]) for j in range(3)] + [min(np.abs(actual_tool_pose[j] - tool_orientation[j-3]), np.abs(np.abs(actual_tool_pose[j] - tool_orientation[j-3]) - np.pi*2)) for j in range(3,6)])
-                tcp_state_data = self.tcp_socket.recv(2048)
-                prev_actual_tool_pose = np.asarray(actual_tool_pose).copy()
-                actual_tool_pose = self.parse_tcp_state_data(tcp_state_data, 'cartesian_info')
-                time.sleep(0.01)
+            dicoState = self.get_state()
+            actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
+            while not all(
+                    [np.abs(actual_tool_pose[j] - tool_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
+                dicoState = self.get_state()
+                actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             self.tcp_socket.close()
 
     def guarded_move_to(self, tool_position, tool_orientation):
@@ -557,25 +564,28 @@ class Robot(object):
 
 
     def move_joints(self, joint_configuration):
-
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
+        # Build the movej command
         tcp_command = "movej([%f" % joint_configuration[0]
-        for joint_idx in range(1,6):
+        for joint_idx in range(1, 6):
             tcp_command = tcp_command + (",%f" % joint_configuration[joint_idx])
         tcp_command = tcp_command + "],a=%f,v=%f)\n" % (self.joint_acc, self.joint_vel)
+        print(tcp_command)
         self.tcp_socket.send(str.encode(tcp_command))
-
-        # Block until robot reaches home state
-        state_data = self.tcp_socket.recv(2048)
-        actual_joint_positions = self.parse_tcp_state_data(state_data, 'joint_data')
-        while not all([np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
-            state_data = self.tcp_socket.recv(2048)
-            actual_joint_positions = self.parse_tcp_state_data(state_data, 'joint_data')
-            time.sleep(0.01)
-
+        # # Block until robot reaches home state
+        dicoState = self.get_state()
+        actual_joint_positions = dicoState['actualJointPositions']
+        while not all(
+                [np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
+            dicoState = self.get_state()
+            actual_joint_positions = dicoState['actualJointPositions']
+            print(actual_joint_positions)
         self.tcp_socket.close()
 
+    # Avec les 6 angles exprimés en degré
+    def move_joints_degree(self, joint_configuration):
+        self.move_joints([q*np.pi/180 for q in joint_configuration])
 
     def go_home(self):
 
@@ -954,6 +964,34 @@ class Robot(object):
             if tool_analog_input2 > 3.0 and (abs(new_tool_analog_input2 - tool_analog_input2) < 0.01) and all([np.abs(actual_tool_pose[j] - home_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                 break
             tool_analog_input2 = new_tool_analog_input2
+
+
+    # Get all the information from robot UR through RealTime port 30003
+    # See Excel file for the list of available data
+    def get_state(self):
+        # Connect as real-time client to parse state data
+        rtc_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        rtc_socket.connect((self.rtc_host_ip, self.rtc_port))
+        stateData = rtc_socket.recv(NUMBER_BYTES_FROM_UR)
+        dico = {}
+        for key, (offset, dataType) in self.dicoVariables.items():
+            if dataType == INTEGER:
+                dico[key] = self.getInteger(stateData, offset)
+            if dataType == DOUBLE:
+                dico[key] = self.getDouble(stateData, offset)
+            if dataType == ARRAY_OF_6_DOUBLES:
+                dico[key] = self.getListOf6Double(stateData, offset)
+        rtc_socket.close()
+        return dico
+
+    def getDouble(self, data, pos):
+        return struct.unpack('!d', data[pos:pos + 8])[0]  # d car double
+
+    def getInteger(self, data, pos):
+        return struct.unpack('!i', data[pos:pos + 4])[0]  # i car integer
+
+    def getListOf6Double(self, data, pos):
+        return struct.unpack('!dddddd', data[pos:pos + 48])  # d car double et 48 car 6 doubles * 8 octets
 
 
     # def place(self, position, orientation, workspace_limits):

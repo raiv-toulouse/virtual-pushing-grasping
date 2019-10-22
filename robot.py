@@ -455,16 +455,6 @@ class Robot(object):
             if not async:
                 time.sleep(1.5)
 
-
-    def get_state(self):
-
-        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        state_data = self.tcp_socket.recv(2048)
-        self.tcp_socket.close()
-        return state_data
-
-
     def move_to(self, tool_position, tool_orientation):
 
         if self.is_sim:
@@ -598,7 +588,6 @@ class Robot(object):
         state_data = self.get_state()
         tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
         return tool_analog_input2 > 0.26
-
 
     # Primitives ----------------------------------------------------------
 
@@ -777,7 +766,6 @@ class Robot(object):
 
         return grasp_success
 
-
     def push(self, position, heightmap_rotation_angle, workspace_limits):
         print('Executing: push at (%f, %f, %f)' % (position[0], position[1], position[2]))
 
@@ -895,7 +883,6 @@ class Robot(object):
 
         return push_success
 
-
     def restart_real(self):
 
         # Compute tool orientation from heightmap rotation angle
@@ -965,7 +952,6 @@ class Robot(object):
                 break
             tool_analog_input2 = new_tool_analog_input2
 
-
     # Get all the information from robot UR through RealTime port 30003
     # See Excel file for the list of available data
     def get_state(self):
@@ -992,7 +978,6 @@ class Robot(object):
 
     def getListOf6Double(self, data, pos):
         return struct.unpack('!dddddd', data[pos:pos + 48])  # d car double et 48 car 6 doubles * 8 octets
-
 
     # def place(self, position, orientation, workspace_limits):
     #     print('Executing: place at (%f, %f, %f)' % (position[0], position[1], position[2]))

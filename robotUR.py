@@ -12,7 +12,7 @@ ARRAY_OF_6_DOUBLES = 3
 
 
 class RobotUR(object):
-    def __init__(self, tcp_host_ip, tcp_port, rtc_host_ip, rtc_port):
+    def __init__(self, tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,joint_acc=1.4,joint_vel=1.05):
 
         # Default home joint configuration
         # self.home_joint_config = [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0]
@@ -21,8 +21,8 @@ class RobotUR(object):
                                   -(90.0 / 360.0) * 2 * np.pi, 0.0]
 
         # Default joint speed configuration
-        self.joint_acc = 1.4  # Safe: 1.4
-        self.joint_vel = 1  # Safe: 1.05
+        self.joint_acc = joint_acc # Safe: 1.4
+        self.joint_vel = joint_vel  # Safe: 1.05
 
         # Joint tolerance for blocking calls
         self.joint_tolerance = 0.01
@@ -74,8 +74,7 @@ class RobotUR(object):
         # # Block until robot reaches home state
         dicoState = self.get_state()
         actual_joint_positions = dicoState['actualJointPositions']
-        while not all(
-                [np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
+        while not all([np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
             dicoState = self.get_state()
             actual_joint_positions = dicoState['actualJointPositions']
             print(actual_joint_positions)
@@ -88,7 +87,8 @@ class RobotUR(object):
     def open_gripper(self, async=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        tcp_command = "set_digital_out(8,False)\n"
+        tcp_command = "RG2(50)\n"
+        #tcp_command = "set_digital_out(8,False)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()
         if not async:
@@ -97,7 +97,8 @@ class RobotUR(object):
     def close_gripper(self, async=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        tcp_command = "set_digital_out(8,True)\n"
+        tcp_command = "RG2(10)\n"
+        #tcp_command = "set_digital_out(8,True)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()
         if not async:
@@ -142,3 +143,21 @@ class RobotUR(object):
 
     def getListOf6Double(self, data, pos):
         return struct.unpack('!dddddd', data[pos:pos + 48])  # d car double et 48 car 6 doubles * 8 octets
+
+#
+# Programme principal
+#
+if __name__ == '__main__':
+    IP_UR3 = '10.31.56.102'
+    IP_UR5 = '10.31.56.104'
+    monRobot = RobotUR(IP_UR5, 30002, IP_UR5, 30003,0.5,0.5)
+    print('premier mouvement')
+    monRobot.move_joints([-3.141593,-1.469567,1.968731,-2.089159,-1.570796,0.000000])
+    print()
+    print('deuxième mouvement')
+    print()
+    monRobot.move_joints([-3.141593,-1.570796,1.570796,0.000000,1.570796,3.141593])
+    print()
+    monRobot.open_gripper()
+    time.sleep(5)
+    monRobot.close_gripper()

@@ -12,14 +12,15 @@ from mpl_toolkits.mplot3d import Axes3D
 
 # User options (change me)
 # --------------- Setup options ---------------
-tcp_host_ip = '100.127.7.223' # IP and port to robot arm as TCP client (UR5)
+tcp_host_ip = '10.31.56.102' # IP and port to robot arm as TCP client (UR5)
 tcp_port = 30002
-rtc_host_ip = '100.127.7.223' # IP and port to robot arm as real-time client (UR5)
+rtc_host_ip = '10.31.56.102' # IP and port to robot arm as real-time client (UR5)
 rtc_port = 30003
-workspace_limits = np.asarray([[0.3, 0.748], [0.05, 0.4], [-0.2, -0.1]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
-calib_grid_step = 0.05
-checkerboard_offset_from_tool = [0,-0.13,0.02]
-tool_orientation = [-np.pi/2,0,0] # [0,-2.22,2.22] # [2.22,2.22,0]
+#workspace_limits = np.asarray([[0.3, 0.748], [0.05, 0.4], [-0.2, -0.1]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+calib_grid_step = 0.03
+checkerboard_offset_from_tool = [0,-0.10,0.02]
+tool_orientation = [np.pi/2,0,0] # [0,-2.22,2.22] # [2.22,2.22,0]
 # ---------------------------------------------
 
 
@@ -43,19 +44,23 @@ print('Connecting to robot...')
 robot = Robot(False, None, None, workspace_limits,
               tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
               False, None, None)
-robot.open_gripper()
+# robot.open_gripper()
 
 # Slow down robot
 robot.joint_acc = 1.4
 robot.joint_vel = 1.05
 
 # Make robot gripper point upwards
-robot.move_joints([-np.pi, -np.pi/2, np.pi/2, 0, np.pi/2, np.pi])
+robot.move_joints([-1.5,-1.92,-2.11,-2.25, -1.48,0])
+print('le robot est en position 1')
 
 # Move robot to each calibration point in workspace
 print('Collecting data...')
+print(num_calib_grid_pts)
 for calib_pt_idx in range(num_calib_grid_pts):
     tool_position = calib_grid_pts[calib_pt_idx,:]
+    print(calib_pt_idx)
+    print(tool_position)
     robot.move_to(tool_position, tool_orientation)
     time.sleep(1)
     
@@ -88,7 +93,7 @@ for calib_pt_idx in range(num_calib_grid_pts):
         # Draw and display the corners
         # vis = cv2.drawChessboardCorners(robot.camera.color_data, checkerboard_size, corners_refined, checkerboard_found)
         vis = cv2.drawChessboardCorners(bgr_color_data, (1,1), corners_refined[4,:,:], checkerboard_found)
-        cv2.imwrite('%06d.png' % len(measured_pts), vis)
+        cv2.imwrite('screenshots/%06d.png' % len(measured_pts), vis)
         cv2.imshow('Calibration',vis)
         cv2.waitKey(10)
 

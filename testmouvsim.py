@@ -8,10 +8,23 @@ workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]
 robot = RobotSim('objects/blocks', workspace_limits,
                 True)
 
-robot.move_to([-0.7,0,0.1])
 
-time.sleep(1)
+
 
 robot.move_to([-0.5,0,0])
+
+robot.close_gripper()
+
+robot.move_to([-0.5,0,0.5])
+
+
+
+
+
+
+
+
+
+
 
 

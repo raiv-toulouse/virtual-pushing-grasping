@@ -6,6 +6,8 @@ import os
 import numpy as np
 import utils
 from simulation import vrep
+import os.path
+from os import path
 
 NUMBER_BYTES_FROM_UR = 1116  # For the UR3.10 version
 INTEGER = 1
@@ -113,17 +115,19 @@ class Robot(object):
 
             # Default home joint configuration
             # self.home_joint_config = [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0]
-            self.home_joint_config = [-(180.0/360.0)*2*np.pi, -(84.2/360.0)*2*np.pi, (112.8/360.0)*2*np.pi, -(119.7/360.0)*2*np.pi, -(90.0/360.0)*2*np.pi, 0.0]
+            self.home_joint_config = [-1.518,-1.27,-1.012,-1.710, 1.535,6.28]
+
+
 
             # Default joint speed configuration
-            self.joint_acc = 8 # Safe: 1.4
-            self.joint_vel = 3 # Safe: 1.05
+            self.joint_acc = 4# Safe: 1.4
+            self.joint_vel = 2# Safe: 1.05
 
             # Joint tolerance for blocking calls
             self.joint_tolerance = 0.01
 
             # Default tool speed configuration
-            self.tool_acc = 1.2 # Safe: 0.5
+            self.tool_acc = 0.5 # Safe: 0.5
             self.tool_vel = 0.25 # Safe: 0.2
 
             # Tool pose tolerance for blocking calls
@@ -132,15 +136,16 @@ class Robot(object):
             # Move robot to home pose
             self.close_gripper()
             self.go_home()
-
+            print('fin go home')
             # Fetch RGB-D data from RealSense camera
             from real.camera import Camera
             self.camera = Camera()
             self.cam_intrinsics = self.camera.intrinsics
 
             # Load camera pose (from running calibrate.py), intrinsics and depth scale
-            self.cam_pose = np.loadtxt('real/camera_pose.txt', delimiter=' ')
-            self.cam_depth_scale = np.loadtxt('real/camera_depth_scale.txt', delimiter=' ')
+            if path.exists('real/camera_pose.txt'):
+                self.cam_pose = np.loadtxt('real/camera_pose.txt', delimiter=' ')
+                self.cam_depth_scale = np.loadtxt('real/camera_depth_scale.txt', delimiter=' ')
 
 
     def setup_sim_camera(self):
@@ -443,8 +448,8 @@ class Robot(object):
             sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle, vrep.simx_opmode_blocking)
             vrep.simxSetJointForce(self.sim_client, RG2_gripper_handle, gripper_motor_force, vrep.simx_opmode_blocking)
             vrep.simxSetJointTargetVelocity(self.sim_client, RG2_gripper_handle, gripper_motor_velocity, vrep.simx_opmode_blocking)
-            while gripper_joint_position < 0.0536: # Block until gripper is fully open
-                sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle, vrep.simx_opmode_blocking)
+#ICAM            while gripper_joint_position < 0.0536: # Block until gripper is fully open
+#                sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle, vrep.simx_opmode_blocking)
 
         else:
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -455,18 +460,8 @@ class Robot(object):
             if not async:
                 time.sleep(1.5)
 
-
-    def get_state(self):
-
-        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        state_data = self.tcp_socket.recv(2048)
-        self.tcp_socket.close()
-        return state_data
-
-
     def move_to(self, tool_position, tool_orientation):
-
+        print('move_to')
         if self.is_sim:
 
             # sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
@@ -495,9 +490,11 @@ class Robot(object):
             actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             while not all(
                     [np.abs(actual_tool_pose[j] - tool_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
+                print(actual_tool_pose)
                 dicoState = self.get_state()
                 actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             self.tcp_socket.close()
+        print('On sort de move_to')
 
     def guarded_move_to(self, tool_position, tool_orientation):
 
@@ -564,6 +561,7 @@ class Robot(object):
 
 
     def move_joints(self, joint_configuration):
+        print('move_joints')
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
         # Build the movej command
@@ -582,6 +580,7 @@ class Robot(object):
             actual_joint_positions = dicoState['actualJointPositions']
             print(actual_joint_positions)
         self.tcp_socket.close()
+        print('je sorts de move_joints')
 
     # Avec les 6 angles exprimés en degré
     def move_joints_degree(self, joint_configuration):
@@ -590,15 +589,16 @@ class Robot(object):
     def go_home(self):
 
         self.move_joints(self.home_joint_config)
+        print("le robot est en position initiale")
 
 
     # Note: must be preceded by close_gripper()
     def check_grasp(self):
 
-        state_data = self.get_state()
-        tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-        return tool_analog_input2 > 0.26
-
+        # state_data = self.get_state()
+        # tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
+        # return tool_analog_input2 > 0.26
+        return True
 
     # Primitives ----------------------------------------------------------
 

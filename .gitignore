@@ -1,0 +1,9 @@
+/.idea/
+/visualization.grasp.png
+/visualization.push.png
+/screenshots/
+/downloads/vpg-original-real-pretrained-30-obj.pth
+/downloads/vpg-original-sim-pretrained-10-obj.pth
+/logs/
+/realsense/CMakeFiles/
+/realsense/realsense

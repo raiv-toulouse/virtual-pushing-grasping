@@ -148,16 +148,21 @@ class RobotUR(object):
 # Programme principal
 #
 if __name__ == '__main__':
-    IP_UR3 = '10.31.56.102'
+    IP_UR3 = '10.31.56.102'  # IP and port to robot arm as TCP client (UR5)
     IP_UR5 = '10.31.56.104'
-    monRobot = RobotUR(IP_UR5, 30002, IP_UR5, 30003,0.5,0.5)
-    print('premier mouvement')
+    tcp_port = 30002
+    rtc_port = 30003
+    print("robot at home")
+    monRobot = RobotUR(IP_UR5, tcp_port, IP_UR5, rtc_port,0.5,0.5)
+    print('fin du premier mouvement')
     monRobot.move_joints([-3.141593,-1.469567,1.968731,-2.089159,-1.570796,0.000000])
-    print()
-    print('deuxième mouvement')
-    print()
+    print('fin du deuxième mouvement')
     monRobot.move_joints([-3.141593,-1.570796,1.570796,0.000000,1.570796,3.141593])
-    print()
+    print("déplacement en degré")
+    monRobot.move_joints_degree([-270, -90, 0, -90, 270, 180])
+    print('on ouvre la pince')
     monRobot.open_gripper()
     time.sleep(5)
+    print('on ferme la pince')
     monRobot.close_gripper()
+    print('fin du programme de test')

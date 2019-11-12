@@ -7,16 +7,11 @@ import numpy as np
 from simulation import vrep
 
 class RobotSim(object):
-    def __init__(self, obj_mesh_dir, workspace_limits,
-                 is_testing):
-
+    def __init__(self, obj_mesh_dir, workspace_limits, is_testing):
         self.workspace_limits = workspace_limits
-
         # Read files in object mesh directory
         self.obj_mesh_dir = obj_mesh_dir
-
         self.mesh_list = os.listdir(self.obj_mesh_dir)
-
         vrep.simxFinish(-1)  # Just in case, close all opened connections
         self.sim_client = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5)  # Connect to V-REP on port 19997
         if self.sim_client == -1:
@@ -25,11 +20,9 @@ class RobotSim(object):
         else:
             print('Connected to simulation.')
             self.restart_sim()
-
         self.is_testing = is_testing
 
     def check_sim(self):
-
         # Check if simulation is stable by checking if gripper is within workspace
         sim_ret, gripper_position = vrep.simxGetObjectPosition(self.sim_client, self.RG2_tip_handle, -1, vrep.simx_opmode_blocking)
         sim_ok = gripper_position[0] > self.workspace_limits[0][0] - 0.1 and gripper_position[0] < self.workspace_limits[0][1] + 0.1 and gripper_position[1] > self.workspace_limits[1][0] - 0.1 and gripper_position[1] < self.workspace_limits[1][1] + 0.1 and gripper_position[2] > self.workspace_limits[2][0] and gripper_position[2] < self.workspace_limits[2][1]
@@ -39,7 +32,6 @@ class RobotSim(object):
 
 
     def restart_sim(self):
-
         sim_ret, self.UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
         vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1, (-0.5,0,0.3), vrep.simx_opmode_blocking)
         vrep.simxStopSimulation(self.sim_client, vrep.simx_opmode_blocking)
@@ -121,8 +113,9 @@ class RobotSim(object):
 # Programme de test
 #
 if __name__ == '__main__':
-    workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])  # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
-    robot = RobotSim('objects/blocks', workspace_limits,True)
+    # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+    workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])
+    robot = RobotSim('objects/blocks', workspace_limits, True)
     robot.move_to([-0.5, 0, 0])
     robot.close_gripper()
     robot.move_to([-0.5, 0, 0.5])

@@ -17,12 +17,11 @@ tcp_port = 30002
 rtc_host_ip = '10.31.56.102' # IP and port to robot arm as real-time client (UR5)
 rtc_port = 30003
 #workspace_limits = np.asarray([[0.3, 0.748], [0.05, 0.4], [-0.2, -0.1]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
-workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.45], [0.08,0.18]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
 calib_grid_step = 0.03
-checkerboard_offset_from_tool = [0,-0.10,0.02]
+checkerboard_offset_from_tool = [0,0.13,0.05]#le repère se situe entre les deux doigts de la pince et dirigé vers la pince en z
 tool_orientation = [np.pi/2,0,0] # [0,-2.22,2.22] # [2.22,2.22,0]
 # ---------------------------------------------
-
 
 # Construct 3D calibration grid across workspace
 gridspace_x = np.linspace(workspace_limits[0][0], workspace_limits[0][1], 1 + (workspace_limits[0][1] - workspace_limits[0][0])/calib_grid_step)
@@ -47,8 +46,8 @@ robot = Robot(False, None, None, workspace_limits,
 # robot.open_gripper()
 
 # Slow down robot
-robot.joint_acc = 1.4
-robot.joint_vel = 1.05
+robot.joint_acc = 1.3
+robot.joint_vel = 1.5
 
 # Make robot gripper point upwards
 robot.move_joints([-1.5,-1.92,-2.11,-2.25, -1.48,0])

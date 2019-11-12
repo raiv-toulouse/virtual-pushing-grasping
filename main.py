@@ -32,7 +32,7 @@ def main(args):
     if is_sim:
         workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     else:
-        workspace_limits = np.asarray([[0.3, 0.748], [-0.224, 0.224], [-0.255, -0.1]])# Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+        workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]])# Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     heightmap_resolution = args.heightmap_resolution # Meters per pixel of heightmap
     random_seed = args.random_seed
 
@@ -220,6 +220,9 @@ def main(args):
         # Get latest RGB-D image
         color_img, depth_img = robot.get_camera_data()
         depth_img = depth_img * robot.cam_depth_scale # Apply depth scale from calibration
+        # cv2.imshow('photo',depth_img)
+        # if cv2.waitKey(0)==27:
+        #     continue
 
         # Get heightmap from RGB-D image (by re-projecting 3D point cloud)
         color_heightmap, depth_heightmap = utils.get_heightmap(color_img, depth_img, robot.cam_intrinsics, robot.cam_pose, workspace_limits, heightmap_resolution)
@@ -232,31 +235,31 @@ def main(args):
 
         # Reset simulation or pause real-world training if table is empty
         stuff_count = np.zeros(valid_depth_heightmap.shape)
-        stuff_count[valid_depth_heightmap > 0.02] = 1
+        stuff_count[valid_depth_heightmap > 0.01] = 1
         empty_threshold = 300
         if is_sim and is_testing:
-            empty_threshold = 10  
-        if np.sum(stuff_count) < empty_threshold or (is_sim and no_change_count[0] + no_change_count[1] > 10):
-            no_change_count = [0, 0]
-            if is_sim:
-                print('Not enough objects in view (value: %d)! Repositioning objects.' % (np.sum(stuff_count)))
-                robot.restart_sim()
-                robot.add_objects()
-                if is_testing: # If at end of test run, re-load original weights (before test run)
-                    trainer.model.load_state_dict(torch.load(snapshot_file))
-            else:
-                # print('Not enough stuff on the table (value: %d)! Pausing for 30 seconds.' % (np.sum(stuff_count)))
-                # time.sleep(30)
-                print('Not enough stuff on the table (value: %d)! Flipping over bin of objects...' % (np.sum(stuff_count)))
-                robot.restart_real()
+            empty_threshold = 10
+        # if np.sum(stuff_count) < empty_threshold or (is_sim and no_change_count[0] + no_change_count[1] > 10):
+        #     no_change_count = [0, 0]
+        #     if is_sim:
+        #         print('Not enough objects in view (value: %d)! Repositioning objects.' % (np.sum(stuff_count)))
+        #         robot.restart_sim()
+        #         robot.add_objects()
+        #         if is_testing: # If at end of test run, re-load original weights (before test run)
+        #             trainer.model.load_state_dict(torch.load(snapshot_file))
+        #     else:
+        #         # print('Not enough stuff on the table (value: %d)! Pausing for 30 seconds.' % (np.sum(stuff_count)))
+        #         # time.sleep(30)
+        #         print('Not enough stuff on the table (value: %d)! Flipping over bin of objects...' % (np.sum(stuff_count)))
+        #         robot.restart_real()
+        #
+        #     trainer.clearance_log.append([trainer.iteration])
+        #     logger.write_to_log('clearance', trainer.clearance_log)
+        #     if is_testing and len(trainer.clearance_log) >= max_test_trials:
+        #         exit_called = True # Exit after training thread (backprop and saving labels)
+        #     continue
 
-            trainer.clearance_log.append([trainer.iteration]) 
-            logger.write_to_log('clearance', trainer.clearance_log)
-            if is_testing and len(trainer.clearance_log) >= max_test_trials:
-                exit_called = True # Exit after training thread (backprop and saving labels)
-            continue
-
-        if not exit_called: 
+        if not exit_called:
 
             # Run forward pass with network to get affordances
             push_predictions, grasp_predictions, state_feat = trainer.forward(color_heightmap, valid_depth_heightmap, is_volatile=True)
@@ -400,9 +403,9 @@ if __name__ == '__main__':
     parser.add_argument('--is_sim', dest='is_sim', action='store_true', default=False,                                    help='run in simulation?')
     parser.add_argument('--obj_mesh_dir', dest='obj_mesh_dir', action='store', default='objects/blocks',                  help='directory containing 3D mesh files (.obj) of objects to be added to simulation')
     parser.add_argument('--num_obj', dest='num_obj', type=int, action='store', default=10,                                help='number of objects to add to simulation')
-    parser.add_argument('--tcp_host_ip', dest='tcp_host_ip', action='store', default='100.127.7.223',                     help='IP address to robot arm as TCP client (UR5)')
+    parser.add_argument('--tcp_host_ip', dest='tcp_host_ip', action='store', default='10.31.56.102',                     help='IP address to robot arm as TCP client (UR5)')
     parser.add_argument('--tcp_port', dest='tcp_port', type=int, action='store', default=30002,                           help='port to robot arm as TCP client (UR5)')
-    parser.add_argument('--rtc_host_ip', dest='rtc_host_ip', action='store', default='100.127.7.223',                     help='IP address to robot arm as real-time client (UR5)')
+    parser.add_argument('--rtc_host_ip', dest='rtc_host_ip', action='store', default='10.31.56.102',                     help='IP address to robot arm as real-time client (UR5)')
     parser.add_argument('--rtc_port', dest='rtc_port', type=int, action='store', default=30003,                           help='port to robot arm as real-time client (UR5)')
     parser.add_argument('--heightmap_resolution', dest='heightmap_resolution', type=float, action='store', default=0.002, help='meters per pixel of heightmap')
     parser.add_argument('--random_seed', dest='random_seed', type=int, action='store', default=1234,                      help='random seed for simulation and neural net initialization')

@@ -68,8 +68,6 @@ class RobotSim(object):
         vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
                                    (tool_position[0], tool_position[1], tool_position[2]), vrep.simx_opmode_blocking)
 
-
-
     def open_gripper(self, async=False):
 
         gripper_motor_velocity = 0.5
@@ -84,9 +82,6 @@ class RobotSim(object):
         while gripper_joint_position < 0.0536:  # Block until gripper is fully open
             sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle,
                                                                         vrep.simx_opmode_blocking)
-
-
-
 
     def close_gripper(self, async=False):
 
@@ -107,7 +102,7 @@ class RobotSim(object):
             if new_gripper_joint_position >= gripper_joint_position:
                 return gripper_fully_closed
             gripper_joint_position = new_gripper_joint_position
-        gripper_fully_closed = True
+
 
 #
 # Programme de test
@@ -119,3 +114,4 @@ if __name__ == '__main__':
     robot.move_to([-0.5, 0, 0])
     robot.close_gripper()
     robot.move_to([-0.5, 0, 0.5])
+    robot.open_gripper()

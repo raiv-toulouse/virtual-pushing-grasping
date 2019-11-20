@@ -77,7 +77,6 @@ class RobotUR(object):
         while not all([np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
             dicoState = self.get_state()
             actual_joint_positions = dicoState['actualJointPositions']
-            print(actual_joint_positions)
         self.tcp_socket.close()
 
     # Avec les 6 angles exprimés en degré

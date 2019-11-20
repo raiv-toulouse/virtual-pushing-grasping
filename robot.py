@@ -203,6 +203,8 @@ class Robot(object):
     def restart_sim(self):
 
         sim_ret, self.UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
+        sim_ret, self.cam_handle = vrep.simxGetObjectHandle(self.sim_client, 'Vision_sensor_persp', vrep.simx_opmode_blocking)
+
         vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1, (-0.5,0,0.3), vrep.simx_opmode_blocking)
         vrep.simxStopSimulation(self.sim_client, vrep.simx_opmode_blocking)
         vrep.simxStartSimulation(self.sim_client, vrep.simx_opmode_blocking)

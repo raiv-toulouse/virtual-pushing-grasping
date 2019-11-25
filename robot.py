@@ -465,7 +465,6 @@ class Robot(object):
                 time.sleep(1.5)
 
     def move_to(self, tool_position, tool_orientation):
-        print('move_to')
         if self.is_sim:
 
             # sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
@@ -498,7 +497,6 @@ class Robot(object):
                 dicoState = self.get_state()
                 actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             self.tcp_socket.close()
-        print('On sort de move_to')
 
     def guarded_move_to(self, tool_position, tool_orientation):
 
@@ -565,7 +563,6 @@ class Robot(object):
 
 
     def move_joints(self, joint_configuration):
-        print('move_joints')
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
         # Build the movej command
@@ -573,7 +570,6 @@ class Robot(object):
         for joint_idx in range(1, 6):
             tcp_command = tcp_command + (",%f" % joint_configuration[joint_idx])
         tcp_command = tcp_command + "],a=%f,v=%f)\n" % (self.joint_acc, self.joint_vel)
-        print(tcp_command)
         self.tcp_socket.send(str.encode(tcp_command))
         # # Block until robot reaches home state
         dicoState = self.get_state()
@@ -582,18 +578,15 @@ class Robot(object):
                 [np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
             dicoState = self.get_state()
             actual_joint_positions = dicoState['actualJointPositions']
-            print(actual_joint_positions)
         self.tcp_socket.close()
-        print('je sorts de move_joints')
 
     # Avec les 6 angles exprimés en degré
     def move_joints_degree(self, joint_configuration):
         self.move_joints([q*np.pi/180 for q in joint_configuration])
 
     def go_home(self):
-
         self.move_joints(self.home_joint_config)
-        print("le robot est en position initiale")
+        print("robot in home position")
 
 
     # Note: must be preceded by close_gripper()

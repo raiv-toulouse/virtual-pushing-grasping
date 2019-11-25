@@ -7,13 +7,13 @@ import numpy as np
 from simulation import vrep
 
 class RobotSim(object):
-    def __init__(self, obj_mesh_dir, workspace_limits, is_testing):
+    def __init__(self, obj_mesh_dir, workspace_limits, is_testing, ip_vrep = '127.0.0.1'):
         self.workspace_limits = workspace_limits
         # Read files in object mesh directory
         self.obj_mesh_dir = obj_mesh_dir
         self.mesh_list = os.listdir(self.obj_mesh_dir)
         vrep.simxFinish(-1)  # Just in case, close all opened connections
-        self.sim_client = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5)  # Connect to V-REP on port 19997
+        self.sim_client = vrep.simxStart(ip_vrep, 19997, True, True, 5000, 5)  # Connect to V-REP on port 19997
         if self.sim_client == -1:
             print('Failed to connect to simulation (V-REP remote API server). Exiting.')
             exit()
@@ -110,7 +110,9 @@ class RobotSim(object):
 if __name__ == '__main__':
     # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])
-    robot = RobotSim('objects/blocks', workspace_limits, True)
+    IP_PF_GEI_O4 = '10.31.24.134'
+    robot = RobotSim('objects/blocks', workspace_limits, True,ip_vrep=IP_PF_GEI_O4)
+    #robot = RobotSim('objects/blocks', workspace_limits, True)  # Pour faire tourner la simu sur la même machine que V-REP
     robot.move_to([-0.5, 0, 0])
     robot.close_gripper()
     robot.move_to([-0.5, 0, 0.5])

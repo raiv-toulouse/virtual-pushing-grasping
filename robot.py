@@ -137,7 +137,6 @@ class Robot(object):
             # Move robot to home pose
             self.close_gripper()
             self.go_home()
-            print('fin go home')
             # Fetch RGB-D data from RealSense camera
             from real.camera import Camera
             self.camera = Camera()
@@ -183,6 +182,8 @@ class Robot(object):
             if self.remote_obj_path:
                 fileName = os.path.basename(curr_mesh_file)  # gets tthe filename without path
                 curr_mesh_file = self.remote_obj_path+'/'+self.obj_mesh_dir+'/'+fileName
+            else:
+                curr_mesh_file = os.path.abspath(curr_mesh_file)
             curr_shape_name = 'shape_%02d' % object_idx
             drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + self.workspace_limits[0][0] + 0.1
             drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + self.workspace_limits[1][0] + 0.1

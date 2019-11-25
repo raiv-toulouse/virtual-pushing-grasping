@@ -17,7 +17,7 @@ ARRAY_OF_6_DOUBLES = 3
 class Robot(object):
     def __init__(self, is_sim, obj_mesh_dir, num_obj, workspace_limits,
                  tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
-                 is_testing, test_preset_cases, test_preset_file):
+                 is_testing, test_preset_cases, test_preset_file,ip_vrep,remote_obj_path):
 
         self.is_sim = is_sim
         self.workspace_limits = workspace_limits
@@ -40,7 +40,8 @@ class Robot(object):
             # Read files in object mesh directory 
             self.obj_mesh_dir = obj_mesh_dir
             self.num_obj = num_obj
-            self.mesh_list = os.listdir(self.obj_mesh_dir)
+            self.mesh_list = os.listdir(os.path.abspath(self.obj_mesh_dir))
+            self.remote_obj_path = remote_obj_path
 
             # Randomly choose objects to add to scene
             self.obj_mesh_ind = np.random.randint(0, len(self.mesh_list), size=self.num_obj)
@@ -61,7 +62,7 @@ class Robot(object):
 
             # Connect to simulator
             vrep.simxFinish(-1) # Just in case, close all opened connections
-            self.sim_client = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
+            self.sim_client = vrep.simxStart(ip_vrep, 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
             if self.sim_client == -1:
                 print('Failed to connect to simulation (V-REP remote API server). Exiting.')
                 exit()
@@ -179,6 +180,9 @@ class Robot(object):
             curr_mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[self.obj_mesh_ind[object_idx]])
             if self.is_testing and self.test_preset_cases:
                 curr_mesh_file = self.test_obj_mesh_files[object_idx]
+            if self.remote_obj_path:
+                fileName = os.path.basename(curr_mesh_file)  # gets tthe filename without path
+                curr_mesh_file = self.remote_obj_path+'/'+self.obj_mesh_dir+'/'+fileName
             curr_shape_name = 'shape_%02d' % object_idx
             drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + self.workspace_limits[0][0] + 0.1
             drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + self.workspace_limits[1][0] + 0.1

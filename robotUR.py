@@ -86,7 +86,7 @@ class RobotUR(object):
     def open_gripper(self, async=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        tcp_command = "RG2(50)\n"
+        tcp_command = "set_digital_out(8,False)\n"
         #tcp_command = "set_digital_out(8,False)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()
@@ -96,7 +96,7 @@ class RobotUR(object):
     def close_gripper(self, async=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
-        tcp_command = "RG2(10)\n"
+        tcp_command = "set_digital_out(8,True)\n"
         #tcp_command = "set_digital_out(8,True)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()

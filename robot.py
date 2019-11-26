@@ -17,7 +17,7 @@ ARRAY_OF_6_DOUBLES = 3
 class Robot(object):
     def __init__(self, is_sim, obj_mesh_dir, num_obj, workspace_limits,
                  tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
-                 is_testing, test_preset_cases, test_preset_file):
+                 is_testing, test_preset_cases, test_preset_file,ip_vrep,remote_obj_path):
 
         self.is_sim = is_sim
         self.workspace_limits = workspace_limits
@@ -40,7 +40,8 @@ class Robot(object):
             # Read files in object mesh directory 
             self.obj_mesh_dir = obj_mesh_dir
             self.num_obj = num_obj
-            self.mesh_list = os.listdir(self.obj_mesh_dir)
+            self.mesh_list = os.listdir(os.path.abspath(self.obj_mesh_dir))
+            self.remote_obj_path = remote_obj_path
 
             # Randomly choose objects to add to scene
             self.obj_mesh_ind = np.random.randint(0, len(self.mesh_list), size=self.num_obj)
@@ -61,7 +62,7 @@ class Robot(object):
 
             # Connect to simulator
             vrep.simxFinish(-1) # Just in case, close all opened connections
-            self.sim_client = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
+            self.sim_client = vrep.simxStart(ip_vrep, 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
             if self.sim_client == -1:
                 print('Failed to connect to simulation (V-REP remote API server). Exiting.')
                 exit()
@@ -136,7 +137,6 @@ class Robot(object):
             # Move robot to home pose
             self.close_gripper()
             self.go_home()
-            print('fin go home')
             # Fetch RGB-D data from RealSense camera
             from real.camera import Camera
             self.camera = Camera()
@@ -179,6 +179,11 @@ class Robot(object):
             curr_mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[self.obj_mesh_ind[object_idx]])
             if self.is_testing and self.test_preset_cases:
                 curr_mesh_file = self.test_obj_mesh_files[object_idx]
+            if self.remote_obj_path:
+                fileName = os.path.basename(curr_mesh_file)  # gets tthe filename without path
+                curr_mesh_file = self.remote_obj_path+'/'+self.obj_mesh_dir+'/'+fileName
+            else:
+                curr_mesh_file = os.path.abspath(curr_mesh_file)
             curr_shape_name = 'shape_%02d' % object_idx
             drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + self.workspace_limits[0][0] + 0.1
             drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + self.workspace_limits[1][0] + 0.1
@@ -463,7 +468,6 @@ class Robot(object):
                 time.sleep(1.5)
 
     def move_to(self, tool_position, tool_orientation):
-        print('move_to')
         if self.is_sim:
 
             # sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
@@ -496,7 +500,6 @@ class Robot(object):
                 dicoState = self.get_state()
                 actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             self.tcp_socket.close()
-        print('On sort de move_to')
 
     def guarded_move_to(self, tool_position, tool_orientation):
 
@@ -563,7 +566,6 @@ class Robot(object):
 
 
     def move_joints(self, joint_configuration):
-        print('move_joints')
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
         # Build the movej command
@@ -571,7 +573,6 @@ class Robot(object):
         for joint_idx in range(1, 6):
             tcp_command = tcp_command + (",%f" % joint_configuration[joint_idx])
         tcp_command = tcp_command + "],a=%f,v=%f)\n" % (self.joint_acc, self.joint_vel)
-        print(tcp_command)
         self.tcp_socket.send(str.encode(tcp_command))
         # # Block until robot reaches home state
         dicoState = self.get_state()
@@ -580,18 +581,15 @@ class Robot(object):
                 [np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
             dicoState = self.get_state()
             actual_joint_positions = dicoState['actualJointPositions']
-            print(actual_joint_positions)
         self.tcp_socket.close()
-        print('je sorts de move_joints')
 
     # Avec les 6 angles exprimés en degré
     def move_joints_degree(self, joint_configuration):
         self.move_joints([q*np.pi/180 for q in joint_configuration])
 
     def go_home(self):
-
         self.move_joints(self.home_joint_config)
-        print("le robot est en position initiale")
+        print("robot in home position")
 
 
     # Note: must be preceded by close_gripper()

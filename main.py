@@ -23,7 +23,8 @@ def main(args):
 
     # --------------- Setup options ---------------
     is_sim = args.is_sim # Run in simulation?
-    obj_mesh_dir = os.path.abspath(args.obj_mesh_dir) if is_sim else None # Directory containing 3D mesh files (.obj) of objects to be added to simulation
+    obj_mesh_dir = args.obj_mesh_dir if is_sim else None  # Directory containing 3D mesh files (.obj) of objects to be added to simulation
+    remote_obj_path = args.remote_obj_path if is_sim else None
     num_obj = args.num_obj if is_sim else None # Number of objects to add to simulation
     tcp_host_ip = args.tcp_host_ip if not is_sim else None # IP and port to robot arm as TCP client (UR5)
     tcp_port = args.tcp_port if not is_sim else None
@@ -65,7 +66,7 @@ def main(args):
     # Initialize pick-and-place system (camera and robot)
     robot = Robot(is_sim, obj_mesh_dir, num_obj, workspace_limits,
                   tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
-                  is_testing, test_preset_cases, test_preset_file)
+                  is_testing, test_preset_cases, test_preset_file,args.ip_vrep,remote_obj_path)
 
     # Initialize trainer
     trainer = Trainer(method, push_rewards, future_reward_discount,
@@ -402,6 +403,7 @@ if __name__ == '__main__':
     # --------------- Setup options ---------------
     parser.add_argument('--is_sim', dest='is_sim', action='store_true', default=False,                                    help='run in simulation?')
     parser.add_argument('--obj_mesh_dir', dest='obj_mesh_dir', action='store', default='objects/blocks',                  help='directory containing 3D mesh files (.obj) of objects to be added to simulation')
+    parser.add_argument('--remote_obj_path', dest='remote_obj_path', action='store',                                        help='remote path to the directory containing 3D mesh files (see obj_mesh_dir)')
     parser.add_argument('--num_obj', dest='num_obj', type=int, action='store', default=10,                                help='number of objects to add to simulation')
     parser.add_argument('--tcp_host_ip', dest='tcp_host_ip', action='store', default='10.31.56.102',                     help='IP address to robot arm as TCP client (UR5)')
     parser.add_argument('--tcp_port', dest='tcp_port', type=int, action='store', default=30002,                           help='port to robot arm as TCP client (UR5)')
@@ -409,7 +411,8 @@ if __name__ == '__main__':
     parser.add_argument('--rtc_port', dest='rtc_port', type=int, action='store', default=30003,                           help='port to robot arm as real-time client (UR5)')
     parser.add_argument('--heightmap_resolution', dest='heightmap_resolution', type=float, action='store', default=0.002, help='meters per pixel of heightmap')
     parser.add_argument('--random_seed', dest='random_seed', type=int, action='store', default=1234,                      help='random seed for simulation and neural net initialization')
-    
+    parser.add_argument('--ip_vrep', dest='ip_vrep', action='store', default='127.0.0.1',                                 help='IP address to V-REP machine')
+
     # ------------- Algorithm options -------------
     parser.add_argument('--method', dest='method', action='store', default='reinforcement',                               help='set to \'reactive\' (supervised learning) or \'reinforcement\' (reinforcement learning ie Q-learning)')
     parser.add_argument('--push_rewards', dest='push_rewards', action='store_true', default=False,                        help='use immediate rewards (from change detection) for pushing?')

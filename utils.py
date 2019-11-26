@@ -7,6 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+# Return True if p is an absolute path like /.. (for Linux) or C:/... (for Windows)
+def path_is_abs(p):
+    return (len(p)>1) and (p[0]=='/' or p[1]==':')
+
 
 def get_pointcloud(color_img, depth_img, camera_intrinsics):
 

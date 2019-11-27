@@ -6,6 +6,8 @@ import os
 import numpy as np
 import utils
 from simulation import vrep
+import os.path
+from os import path
 
 NUMBER_BYTES_FROM_UR = 1116  # For the UR3.10 version
 INTEGER = 1
@@ -15,7 +17,7 @@ ARRAY_OF_6_DOUBLES = 3
 class Robot(object):
     def __init__(self, is_sim, obj_mesh_dir, num_obj, workspace_limits,
                  tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,
-                 is_testing, test_preset_cases, test_preset_file):
+                 is_testing, test_preset_cases, test_preset_file,ip_vrep,remote_obj_path):
 
         self.is_sim = is_sim
         self.workspace_limits = workspace_limits
@@ -38,7 +40,8 @@ class Robot(object):
             # Read files in object mesh directory 
             self.obj_mesh_dir = obj_mesh_dir
             self.num_obj = num_obj
-            self.mesh_list = os.listdir(self.obj_mesh_dir)
+            self.mesh_list = os.listdir(os.path.abspath(self.obj_mesh_dir))
+            self.remote_obj_path = remote_obj_path
 
             # Randomly choose objects to add to scene
             self.obj_mesh_ind = np.random.randint(0, len(self.mesh_list), size=self.num_obj)
@@ -59,7 +62,7 @@ class Robot(object):
 
             # Connect to simulator
             vrep.simxFinish(-1) # Just in case, close all opened connections
-            self.sim_client = vrep.simxStart('127.0.0.1', 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
+            self.sim_client = vrep.simxStart(ip_vrep, 19997, True, True, 5000, 5) # Connect to V-REP on port 19997
             if self.sim_client == -1:
                 print('Failed to connect to simulation (V-REP remote API server). Exiting.')
                 exit()
@@ -113,17 +116,19 @@ class Robot(object):
 
             # Default home joint configuration
             # self.home_joint_config = [-np.pi, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, 0]
-            self.home_joint_config = [-(180.0/360.0)*2*np.pi, -(84.2/360.0)*2*np.pi, (112.8/360.0)*2*np.pi, -(119.7/360.0)*2*np.pi, -(90.0/360.0)*2*np.pi, 0.0]
+            self.home_joint_config = [-1.518,-1.27,-1.012,-1.710, 1.535,6.28]
+
+
 
             # Default joint speed configuration
-            self.joint_acc = 8 # Safe: 1.4
-            self.joint_vel = 3 # Safe: 1.05
+            self.joint_acc = 4# Safe: 1.4
+            self.joint_vel = 2# Safe: 1.05
 
             # Joint tolerance for blocking calls
             self.joint_tolerance = 0.01
 
             # Default tool speed configuration
-            self.tool_acc = 1.2 # Safe: 0.5
+            self.tool_acc = 0.5 # Safe: 0.5
             self.tool_vel = 0.25 # Safe: 0.2
 
             # Tool pose tolerance for blocking calls
@@ -132,15 +137,15 @@ class Robot(object):
             # Move robot to home pose
             self.close_gripper()
             self.go_home()
-
             # Fetch RGB-D data from RealSense camera
             from real.camera import Camera
             self.camera = Camera()
             self.cam_intrinsics = self.camera.intrinsics
 
             # Load camera pose (from running calibrate.py), intrinsics and depth scale
-            self.cam_pose = np.loadtxt('real/camera_pose.txt', delimiter=' ')
-            self.cam_depth_scale = np.loadtxt('real/camera_depth_scale.txt', delimiter=' ')
+            if path.exists('real/camera_pose.txt'):
+                self.cam_pose = np.loadtxt('real/camera_pose.txt', delimiter=' ')
+                self.cam_depth_scale = np.loadtxt('real/camera_depth_scale.txt', delimiter=' ')
 
 
     def setup_sim_camera(self):
@@ -174,6 +179,11 @@ class Robot(object):
             curr_mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[self.obj_mesh_ind[object_idx]])
             if self.is_testing and self.test_preset_cases:
                 curr_mesh_file = self.test_obj_mesh_files[object_idx]
+            if self.remote_obj_path:
+                fileName = os.path.basename(curr_mesh_file)  # gets tthe filename without path
+                curr_mesh_file = self.remote_obj_path+'/'+self.obj_mesh_dir+'/'+fileName
+            else:
+                curr_mesh_file = os.path.abspath(curr_mesh_file)
             curr_shape_name = 'shape_%02d' % object_idx
             drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + self.workspace_limits[0][0] + 0.1
             drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + self.workspace_limits[1][0] + 0.1
@@ -198,6 +208,8 @@ class Robot(object):
     def restart_sim(self):
 
         sim_ret, self.UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
+        sim_ret, self.cam_handle = vrep.simxGetObjectHandle(self.sim_client, 'Vision_sensor_persp', vrep.simx_opmode_blocking)
+
         vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1, (-0.5,0,0.3), vrep.simx_opmode_blocking)
         vrep.simxStopSimulation(self.sim_client, vrep.simx_opmode_blocking)
         vrep.simxStartSimulation(self.sim_client, vrep.simx_opmode_blocking)
@@ -456,7 +468,6 @@ class Robot(object):
                 time.sleep(1.5)
 
     def move_to(self, tool_position, tool_orientation):
-
         if self.is_sim:
 
             # sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
@@ -485,6 +496,7 @@ class Robot(object):
             actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             while not all(
                     [np.abs(actual_tool_pose[j] - tool_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
+                print(actual_tool_pose)
                 dicoState = self.get_state()
                 actual_tool_pose = dicoState['actualCartesianCoordinatesOfTool']
             self.tcp_socket.close()
@@ -561,7 +573,6 @@ class Robot(object):
         for joint_idx in range(1, 6):
             tcp_command = tcp_command + (",%f" % joint_configuration[joint_idx])
         tcp_command = tcp_command + "],a=%f,v=%f)\n" % (self.joint_acc, self.joint_vel)
-        print(tcp_command)
         self.tcp_socket.send(str.encode(tcp_command))
         # # Block until robot reaches home state
         dicoState = self.get_state()
@@ -570,7 +581,6 @@ class Robot(object):
                 [np.abs(actual_joint_positions[j] - joint_configuration[j]) < self.joint_tolerance for j in range(6)]):
             dicoState = self.get_state()
             actual_joint_positions = dicoState['actualJointPositions']
-            print(actual_joint_positions)
         self.tcp_socket.close()
 
     # Avec les 6 angles exprimés en degré
@@ -578,16 +588,17 @@ class Robot(object):
         self.move_joints([q*np.pi/180 for q in joint_configuration])
 
     def go_home(self):
-
         self.move_joints(self.home_joint_config)
+        print("robot in home position")
 
 
     # Note: must be preceded by close_gripper()
     def check_grasp(self):
 
-        state_data = self.get_state()
-        tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-        return tool_analog_input2 > 0.26
+        # state_data = self.get_state()
+        # tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
+        # return tool_analog_input2 > 0.26
+        return True
 
     # Primitives ----------------------------------------------------------
 
@@ -766,6 +777,7 @@ class Robot(object):
 
         return grasp_success
 
+
     def push(self, position, heightmap_rotation_angle, workspace_limits):
         print('Executing: push at (%f, %f, %f)' % (position[0], position[1], position[2]))
 
@@ -883,6 +895,7 @@ class Robot(object):
 
         return push_success
 
+
     def restart_real(self):
 
         # Compute tool orientation from heightmap rotation angle
@@ -952,6 +965,7 @@ class Robot(object):
                 break
             tool_analog_input2 = new_tool_analog_input2
 
+
     # Get all the information from robot UR through RealTime port 30003
     # See Excel file for the list of available data
     def get_state(self):
@@ -978,6 +992,7 @@ class Robot(object):
 
     def getListOf6Double(self, data, pos):
         return struct.unpack('!dddddd', data[pos:pos + 48])  # d car double et 48 car 6 doubles * 8 octets
+
 
     # def place(self, position, orientation, workspace_limits):
     #     print('Executing: place at (%f, %f, %f)' % (position[0], position[1], position[2]))

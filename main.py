@@ -240,25 +240,25 @@ def main(args):
         empty_threshold = 300
         if is_sim and is_testing:
             empty_threshold = 10
-        # if np.sum(stuff_count) < empty_threshold or (is_sim and no_change_count[0] + no_change_count[1] > 10):
-        #     no_change_count = [0, 0]
-        #     if is_sim:
-        #         print('Not enough objects in view (value: %d)! Repositioning objects.' % (np.sum(stuff_count)))
-        #         robot.restart_sim()
-        #         robot.add_objects()
-        #         if is_testing: # If at end of test run, re-load original weights (before test run)
-        #             trainer.model.load_state_dict(torch.load(snapshot_file))
-        #     else:
-        #         # print('Not enough stuff on the table (value: %d)! Pausing for 30 seconds.' % (np.sum(stuff_count)))
-        #         # time.sleep(30)
-        #         print('Not enough stuff on the table (value: %d)! Flipping over bin of objects...' % (np.sum(stuff_count)))
-        #         robot.restart_real()
-        #
-        #     trainer.clearance_log.append([trainer.iteration])
-        #     logger.write_to_log('clearance', trainer.clearance_log)
-        #     if is_testing and len(trainer.clearance_log) >= max_test_trials:
-        #         exit_called = True # Exit after training thread (backprop and saving labels)
-        #     continue
+        if np.sum(stuff_count) < empty_threshold or (is_sim and no_change_count[0] + no_change_count[1] > 10):
+            no_change_count = [0, 0]
+            if is_sim:
+                print('Not enough objects in view (value: %d)! Repositioning objects.' % (np.sum(stuff_count)))
+                robot.restart_sim()
+                robot.add_objects()
+                if is_testing: # If at end of test run, re-load original weights (before test run)
+                    trainer.model.load_state_dict(torch.load(snapshot_file))
+            else:
+                # print('Not enough stuff on the table (value: %d)! Pausing for 30 seconds.' % (np.sum(stuff_count)))
+                # time.sleep(30)
+                print('Not enough stuff on the table (value: %d)! Flipping over bin of objects...' % (np.sum(stuff_count)))
+                robot.restart_real()
+
+            trainer.clearance_log.append([trainer.iteration])
+            logger.write_to_log('clearance', trainer.clearance_log)
+            if is_testing and len(trainer.clearance_log) >= max_test_trials:
+                exit_called = True # Exit after training thread (backprop and saving labels)
+            continue
 
         if not exit_called:
 
@@ -393,6 +393,7 @@ def main(args):
         trainer.iteration += 1
         iteration_time_1 = time.time()
         print('Time elapsed: %f' % (iteration_time_1-iteration_time_0))
+
 
 
 if __name__ == '__main__':

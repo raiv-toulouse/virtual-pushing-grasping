@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 
 # Plot options (change me)
-interval_size = 200 # Report performance over the last 200 training steps
-max_plot_iteration = 2500 # Maximum number of training steps to report performance
+interval_size = 75 # Report performance over the last 200 training steps
+max_plot_iteration = 500# Maximum number of training steps to report performance
 
 # Parse session directories
 parser = argparse.ArgumentParser(description='Plot performance of a session over training time.')
@@ -50,7 +50,7 @@ plt.ylim((0, 1))
 plt.ylabel('Grasping performance (success rate)')
 plt.xlim((0, max_plot_iteration))
 plt.xlabel('Number of training steps')
-plt.grid(True, linestyle='-', color=[0.8,0.8,0.8])
+plt.grid(True, linestyle='-', color=[255.0/255.0,087.0/255.0,089.0/255.0])
 ax = plt.gca()
 for axis in ['top','bottom','left','right']:
     ax.spines[axis].set_color('#000000')

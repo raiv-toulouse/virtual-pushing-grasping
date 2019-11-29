@@ -321,9 +321,7 @@ class Robot(object):
 
 
     def get_camera_data(self):
-
         if self.is_sim:
-
             # Get color image from simulation
             sim_ret, resolution, raw_image = vrep.simxGetVisionSensorImage(self.sim_client, self.cam_handle, 0, vrep.simx_opmode_blocking)
             color_img = np.asarray(raw_image)
@@ -333,7 +331,6 @@ class Robot(object):
             color_img *= 255
             color_img = np.fliplr(color_img)
             color_img = color_img.astype(np.uint8)
-            
             # Get depth image from simulation
             sim_ret, resolution, depth_buffer = vrep.simxGetVisionSensorDepthBuffer(self.sim_client, self.cam_handle, vrep.simx_opmode_blocking)
             depth_img = np.asarray(depth_buffer)
@@ -342,31 +339,41 @@ class Robot(object):
             zNear = 0.01
             zFar = 10
             depth_img = depth_img * (zFar - zNear) + zNear
-
         else:
             # Get color and depth image from ROS service
             color_img, depth_img = self.camera.get_data()
             # color_img = self.camera.color_data.copy()
             # depth_img = self.camera.depth_data.copy()
-
         return color_img, depth_img
 
+    def readMessage(self,s):
+        msgOK = False
+        while msgOK != True:
+            header = s.recv(4)
+            # Read package header
+            data_bytes = bytearray()
+            data_bytes.extend(header)
+            data_length = struct.unpack("!i", data_bytes[0:4])[0]
+            # Read message
+            message = s.recv(data_length - 4)  # 4 is for the previously read header
+            data_bytes.extend(message)
+            if message[0] == 16:
+                msgOK = True
+        return message, data_length
 
-    def parse_tcp_state_data(self, state_data, subpackage):
-
-        # Read package header
-        data_bytes = bytearray()
-        data_bytes.extend(state_data)
-        data_length = struct.unpack("!i", data_bytes[0:4])[0];
-        robot_message_type = data_bytes[4]
-        assert(robot_message_type == 16)
-        byte_idx = 5
-
+    def parse_tcp_state_data(self,subpackage):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.tcp_host_ip, self.tcp_port))
+        data_bytes,data_length = self.readMessage(s)
+        s.close()
+        robot_message_type = data_bytes[0]
+        assert (robot_message_type == 16)
+        byte_idx = 1
         # Parse sub-packages
-        subpackage_types = {'joint_data' : 1, 'cartesian_info' : 4, 'force_mode_data' : 7, 'tool_data' : 2}
+        subpackage_types = {'joint_data': 1, 'cartesian_info': 4, 'force_mode_data': 7, 'tool_data': 2}
         while byte_idx < data_length:
             # package_length = int.from_bytes(data_bytes[byte_idx:(byte_idx+4)], byteorder='big', signed=False)
-            package_length = struct.unpack("!i", data_bytes[byte_idx:(byte_idx+4)])[0]
+            package_length = struct.unpack("!i", data_bytes[byte_idx:(byte_idx + 4)])[0]
             byte_idx += 4
             package_idx = data_bytes[byte_idx]
             if package_idx == subpackage_types[subpackage]:
@@ -375,27 +382,28 @@ class Robot(object):
             byte_idx += package_length - 4
 
         def parse_joint_data(data_bytes, byte_idx):
-            actual_joint_positions = [0,0,0,0,0,0]
-            target_joint_positions = [0,0,0,0,0,0]
+            actual_joint_positions = [0, 0, 0, 0, 0, 0]
+            target_joint_positions = [0, 0, 0, 0, 0, 0]
             for joint_idx in range(6):
-                actual_joint_positions[joint_idx] = struct.unpack('!d', data_bytes[(byte_idx+0):(byte_idx+8)])[0]
-                target_joint_positions[joint_idx] = struct.unpack('!d', data_bytes[(byte_idx+8):(byte_idx+16)])[0]
+                actual_joint_positions[joint_idx] = struct.unpack('!d', data_bytes[(byte_idx + 0):(byte_idx + 8)])[0]
+                target_joint_positions[joint_idx] = struct.unpack('!d', data_bytes[(byte_idx + 8):(byte_idx + 16)])[0]
                 byte_idx += 41
             return actual_joint_positions
 
         def parse_cartesian_info(data_bytes, byte_idx):
-            actual_tool_pose = [0,0,0,0,0,0]
+            actual_tool_pose = [0, 0, 0, 0, 0, 0]
             for pose_value_idx in range(6):
-                actual_tool_pose[pose_value_idx] = struct.unpack('!d', data_bytes[(byte_idx+0):(byte_idx+8)])[0]
+                actual_tool_pose[pose_value_idx] = struct.unpack('!d', data_bytes[(byte_idx + 0):(byte_idx + 8)])[0]
                 byte_idx += 8
             return actual_tool_pose
 
         def parse_tool_data(data_bytes, byte_idx):
             byte_idx += 2
-            tool_analog_input2 = struct.unpack('!d', data_bytes[(byte_idx+0):(byte_idx+8)])[0]
+            tool_analog_input2 = struct.unpack('!d', data_bytes[(byte_idx + 0):(byte_idx + 8)])[0]
             return tool_analog_input2
 
-        parse_functions = {'joint_data' : parse_joint_data, 'cartesian_info' : parse_cartesian_info, 'tool_data' : parse_tool_data}
+        parse_functions = {'joint_data': parse_joint_data, 'cartesian_info': parse_cartesian_info,
+                           'tool_data': parse_tool_data}
         return parse_functions[subpackage](data_bytes, byte_idx)
 
     def parse_rtc_state_data(self, state_data):
@@ -511,7 +519,7 @@ class Robot(object):
 
         # Read actual tool position
         tcp_state_data = self.tcp_socket.recv(2048)
-        actual_tool_pose = self.parse_tcp_state_data(tcp_state_data, 'cartesian_info')
+        actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
         execute_success = True
 
         # Increment every cm, check force
@@ -534,11 +542,11 @@ class Robot(object):
 
             time_start = time.time()
             tcp_state_data = self.tcp_socket.recv(2048)
-            actual_tool_pose = self.parse_tcp_state_data(tcp_state_data, 'cartesian_info')
+            actual_tool_pose = self.parse_tcp_state_data( 'cartesian_info')
             while not all([np.abs(actual_tool_pose[j] - increment_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                 # print([np.abs(actual_tool_pose[j] - increment_position[j]) for j in range(3)])
                 tcp_state_data = self.tcp_socket.recv(2048)
-                actual_tool_pose = self.parse_tcp_state_data(tcp_state_data, 'cartesian_info')
+                actual_tool_pose = self.parse_tcp_state_data( 'cartesian_info')
                 time_snapshot = time.time()
                 if time_snapshot - time_start > 1:
                     break
@@ -594,11 +602,8 @@ class Robot(object):
 
     # Note: must be preceded by close_gripper()
     def check_grasp(self):
-
-        # state_data = self.get_state()
-        # tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-        # return tool_analog_input2 > 0.26
-        return True
+        tool_analog_input2 = self.parse_tcp_state_data( 'tool_data')
+        return tool_analog_input2 > 0.26
 
     # Primitives ----------------------------------------------------------
 
@@ -696,13 +701,11 @@ class Robot(object):
             self.tcp_socket.close()
 
             # Block until robot reaches target tool position and gripper fingers have stopped moving
-            state_data = self.get_state()
-            tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
+            tool_analog_input2 = self.parse_tcp_state_data( 'tool_data')
             timeout_t0 = time.time()
             while True:
-                state_data = self.get_state()
-                new_tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-                actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+                new_tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+                actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
                 timeout_t1 = time.time()
                 if (tool_analog_input2 < 3.7 and (abs(new_tool_analog_input2 - tool_analog_input2) < 0.01) and all([np.abs(actual_tool_pose[j] - position[j]) < self.tool_pose_tolerance[j] for j in range(3)])) or (timeout_t1 - timeout_t0) > 5:
                     break
@@ -738,12 +741,10 @@ class Robot(object):
                 # print(tcp_command) # Debug
 
                 # Measure gripper width until robot reaches near bin location
-                state_data = self.get_state()
                 measurements = []
                 while True:
-                    state_data = self.get_state()
-                    tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-                    actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+                    tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+                    actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
                     measurements.append(tool_analog_input2)
                     if abs(actual_tool_pose[1] - bin_position[1]) < 0.2 or all([np.abs(actual_tool_pose[j] - home_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                         break
@@ -764,13 +765,11 @@ class Robot(object):
                 self.tcp_socket.close()
 
             # Block until robot reaches home location
-            state_data = self.get_state()
-            tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-            actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+            tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+            actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
             while True:
-                state_data = self.get_state()
-                new_tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-                actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+                new_tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+                actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
                 if (abs(new_tool_analog_input2 - tool_analog_input2) < 0.01) and all([np.abs(actual_tool_pose[j] - home_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                     break
                 tool_analog_input2 = new_tool_analog_input2
@@ -886,8 +885,7 @@ class Robot(object):
             # Block until robot reaches target tool position and gripper fingers have stopped moving
             state_data = self.get_state()
             while True:
-                state_data = self.get_state()
-                actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+                actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
                 if all([np.abs(actual_tool_pose[j] - home_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                     break
             push_success = True
@@ -925,12 +923,10 @@ class Robot(object):
         self.tcp_socket.close()
 
         # Block until robot reaches box grabbing position and gripper fingers have stopped moving
-        state_data = self.get_state()
-        tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
+        tool_analog_input2 = self.parse_tcp_state_data('tool_data')
         while True:
-            state_data = self.get_state()
-            new_tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-            actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+            new_tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+            actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
             if tool_analog_input2 < 3.7 and (abs(new_tool_analog_input2 - tool_analog_input2) < 0.01) and all([np.abs(actual_tool_pose[j] - box_grab_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                 break
             tool_analog_input2 = new_tool_analog_input2
@@ -955,12 +951,10 @@ class Robot(object):
         self.tcp_socket.close()
 
         # Block until robot reaches home position
-        state_data = self.get_state()
-        tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
+        tool_analog_input2 = self.parse_tcp_state_data('tool_data')
         while True:
-            state_data = self.get_state()
-            new_tool_analog_input2 = self.parse_tcp_state_data(state_data, 'tool_data')
-            actual_tool_pose = self.parse_tcp_state_data(state_data, 'cartesian_info')
+            new_tool_analog_input2 = self.parse_tcp_state_data('tool_data')
+            actual_tool_pose = self.parse_tcp_state_data('cartesian_info')
             if tool_analog_input2 > 3.0 and (abs(new_tool_analog_input2 - tool_analog_input2) < 0.01) and all([np.abs(actual_tool_pose[j] - home_position[j]) < self.tool_pose_tolerance[j] for j in range(3)]):
                 break
             tool_analog_input2 = new_tool_analog_input2
@@ -1051,76 +1045,33 @@ class Robot(object):
     #         place_success = True
     #         return place_success
 
+#
+# Programme principal
+#
+if __name__ == '__main__':
+    IP_UR3 = '10.31.56.102'  # IP and port to robot arm as TCP client (UR5)
+    IP_UR5 = '10.31.56.104'
+    tcp_port = 30002
+    rtc_port = 30003
+    print("robot at home")
+    monRobot = Robot(False, 'objects/blocks', 10, np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]]),
+        IP_UR3, tcp_port, IP_UR3, rtc_port,
+        False, None, None, None, None)
+    print(monRobot.parse_tcp_state_data('tool_data'))
+    print(monRobot.check_grasp())
+    print('on ouvre la pince')
+    print(monRobot.check_grasp())
+    monRobot.open_gripper()
+    time.sleep(5)
+    print(monRobot.check_grasp())
+    print('on ferme la pince')
+    monRobot.close_gripper()
+    print(monRobot.check_grasp())
+    print('fin du premier mouvement')
+    monRobot.move_joints([-3.141593,-1.469567,1.968731,-2.089159,-1.570796,0.000000])
+    print('fin du deuxième mouvement')
+    monRobot.move_joints([-3.141593,-1.570796,1.570796,0.000000,1.570796,3.141593])
+    print("déplacement en degré")
+    monRobot.move_joints_degree([-270, -90, 0, -90, 270, 180])
+    print('fin du programme de test')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# JUNK
-
-# command = "movel(p[%f,%f,%f,%f,%f,%f],0.5,0.2,0,0,a=1.2,v=0.25)\n" % (-0.5,-0.2,0.1,2.0171,2.4084,0)
-
-# import socket
-
-# HOST = "192.168.1.100"
-# PORT = 30002
-# s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-# s.connect((HOST,PORT))
-
-# j0 = 0
-# j1 = -3.1415/2
-# j2 = 3.1415/2
-# j3 = -3.1415/2
-# j4 = -3.1415/2
-# j5 = 0;
-
-# joint_acc = 1.2
-# joint_vel = 0.25
-
-# # command = "movej([%f,%f,%f,%f,%f,%f],a=%f,v=%f)\n" % (j0,j1,j2,j3,j4,j5,joint_acc,joint_vel)
-
-
-
-# # 
-
-
-# # True closes
-# command = "set_digital_out(8,True)\n"
-
-# s.send(str.encode(command))
-# data = s.recv(1024)
-
-
-
-# s.close()
-# print("Received",repr(data))
-
-
-
-
-
-# print()
-
-# String.Format ("movej([%f,%f,%f,%f,%f, %f], a={6}, v={7})\n", j0, j1, j2, j3, j4, j5, a, v);

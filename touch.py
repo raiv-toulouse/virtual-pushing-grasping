@@ -18,7 +18,6 @@ workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]]) # Cols
 tool_orientation = [-2.22,2.22,0]
 # ---------------------------------------------
 
-
 # Move robot to home pose
 robot = Robot(False, None, None, workspace_limits,
               tcp_host_ip, tcp_port, rtc_host_ip, rtc_port,

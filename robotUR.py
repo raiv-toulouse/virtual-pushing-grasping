@@ -121,7 +121,8 @@ class RobotUR(object):
     def get_state(self):
         # Connect as real-time client to parse state data
         rtc_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        rtc_socket.connect((self.rtc_host_ip, self.rtc_port))
+        rtc_socket.connect((self.rtc_host_ip, self.
+                            rtc_port))
         stateData = rtc_socket.recv(NUMBER_BYTES_FROM_UR)
         dico = {}
         for key, (offset, dataType) in self.dicoVariables.items():

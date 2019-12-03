@@ -33,7 +33,7 @@ def main(args):
     if is_sim:
         workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]]) # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     else:
-        workspace_limits = np.asarray([[-0.2, 0.2], [-0.65, -0.42], [0.08,0.18]])# Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
+        workspace_limits = np.asarray([[-0.2, 0.2], [-0.48, -0.30], [0.08,0.18]])# Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     heightmap_resolution = args.heightmap_resolution # Meters per pixel of heightmap
     random_seed = args.random_seed
 

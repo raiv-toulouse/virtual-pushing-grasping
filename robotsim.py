@@ -68,7 +68,7 @@ class RobotSim(object):
         vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
                                    (tool_position[0], tool_position[1], tool_position[2]), vrep.simx_opmode_blocking)
 
-    def open_gripper(self, async=False):
+    def open_gripper(self, isAsync=False):
 
         gripper_motor_velocity = 0.5
         gripper_motor_force = 20
@@ -83,7 +83,7 @@ class RobotSim(object):
             sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle,
                                                                         vrep.simx_opmode_blocking)
 
-    def close_gripper(self, async=False):
+    def close_gripper(self, isAsync=False):
 
         gripper_motor_velocity = -0.5
         gripper_motor_force = 100

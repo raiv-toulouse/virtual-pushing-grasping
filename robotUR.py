@@ -83,28 +83,28 @@ class RobotUR(object):
     def move_joints_degree(self, joint_configuration):
         self.move_joints([q*np.pi/180 for q in joint_configuration])
 
-    def open_gripper(self, async=False):
+    def open_gripper(self, isAsync=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
         tcp_command = "set_digital_out(8,False)\n"
         #tcp_command = "set_digital_out(8,False)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()
-        if not async:
+        if not isAsync:
             time.sleep(1.5)
 
-    def close_gripper(self, async=False):
+    def close_gripper(self, isAsync=False):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.connect((self.tcp_host_ip, self.tcp_port))
         tcp_command = "set_digital_out(8,True)\n"
         #tcp_command = "set_digital_out(8,True)\n"
         self.tcp_socket.send(str.encode(tcp_command))
         self.tcp_socket.close()
-        if not async:
+        if not isAsync:
             time.sleep(1.5)
 
-    def isGripperFullyClosed(self, async=False):
-        if async:
+    def isGripperFullyClosed(self, isAsync=False):
+        if isAsync:
             gripper_fully_closed = True
         else:
             time.sleep(1.5)

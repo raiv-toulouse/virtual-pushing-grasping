@@ -21,6 +21,48 @@ class RobotSim(object):
             print('Connected to simulation.')
             self.restart_sim()
         self.is_testing = is_testing
+        # Randomly choose objects to add to scene
+        self.num_obj = 5
+        # Define colors for object meshes (Tableau palette)
+        self.color_space = np.asarray([[78.0, 121.0, 167.0], # blue
+                                       [89.0, 161.0, 79.0], # green
+                                       [156, 117, 95], # brown
+                                       [242, 142, 43], # orange
+                                       [237.0, 201.0, 72.0], # yellow
+                                       [186, 176, 172], # gray
+                                       [255.0, 87.0, 89.0], # red
+                                       [176, 122, 161], # purple
+                                       [118, 183, 178], # cyan
+                                       [255, 157, 167]])/255.0 #pink
+        self.obj_mesh_ind = np.random.randint(0, len(self.mesh_list), size=self.num_obj)
+        self.obj_mesh_color = self.color_space[np.asarray(range(self.num_obj)) % 10, :]
+
+        self.add_objects()
+
+    def add_objects(self):
+
+        # Add each object to robot workspace at x,y location and orientation (random or pre-loaded)
+        self.object_handles = []
+        sim_obj_handles = []
+        for object_idx in range(len(self.obj_mesh_ind)):
+            curr_mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[self.obj_mesh_ind[object_idx]])
+            curr_mesh_file = os.path.abspath(curr_mesh_file)
+            curr_shape_name = 'shape_%02d' % object_idx
+            drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + self.workspace_limits[0][0] + 0.1
+            drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + self.workspace_limits[1][0] + 0.1
+            object_position = [drop_x, drop_y, 0.15]
+            object_orientation = [2*np.pi*np.random.random_sample(), 2*np.pi*np.random.random_sample(), 2*np.pi*np.random.random_sample()]
+            object_color = [self.obj_mesh_color[object_idx][0], self.obj_mesh_color[object_idx][1], self.obj_mesh_color[object_idx][2]]
+            ret_resp,ret_ints,ret_floats,ret_strings,ret_buffer = vrep.simxCallScriptFunction(self.sim_client, 'remoteApiCommandServer',vrep.sim_scripttype_childscript,'importShape',[0,0,255,0], object_position + object_orientation + object_color, [curr_mesh_file, curr_shape_name], bytearray(), vrep.simx_opmode_blocking)
+            if ret_resp == 8:
+                print('Failed to add new objects to simulation. Please restart.')
+                exit()
+            curr_shape_handle = ret_ints[0]
+            self.object_handles.append(curr_shape_handle)
+            time.sleep(2)
+        self.prev_obj_positions = []
+        self.obj_positions = []
+
 
     def check_sim(self):
         # Check if simulation is stable by checking if gripper is within workspace
@@ -110,8 +152,9 @@ class RobotSim(object):
 if __name__ == '__main__':
     # Cols: min max, Rows: x y z (define workspace limits in robot coordinates)
     workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])
-    IP_PF_GEI_O4 = '10.31.24.134'
-    robot = RobotSim('objects/blocks', workspace_limits, True,ip_vrep=IP_PF_GEI_O4)
+    # IP = '10.31.24.134' # IP_PF_GEI_O4
+    IP = '192.168.1.42'  # HOME
+    robot = RobotSim('objects/blocks', workspace_limits, True,ip_vrep=IP)
     #robot = RobotSim('objects/blocks', workspace_limits, True)  # Pour faire tourner la simu sur la même machine que V-REP
     robot.move_to([-0.5, 0, 0])
     robot.close_gripper()
